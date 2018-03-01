@@ -1,0 +1,11 @@
+{
+    "name": "ESPHelper32",
+    "keywords": "mqtt, iot, esp32",
+    "description": "A library to make using WiFi & MQTT on ESP32 based platforms easy.",
+    "version": "0.5.0",
+    "examples": "examples/*/*.ino",
+    "frameworks": "arduino",
+    "platforms": [
+        "espressif32"
+    ]
+}
