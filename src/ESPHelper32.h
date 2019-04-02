@@ -1,6 +1,6 @@
 /*
     ESPHelper32.h
-    Copyright (c) 2018 ItKindaWorks Inc All right reserved.
+    Copyright (c) 2019 ItKindaWorks Inc All right reserved.
     github.com/ItKindaWorks
 
     This file is part of ESPHelper32
@@ -57,8 +57,9 @@ public:
 	ESPHelper32(const char *ssid, const char *pass, const char *mqttIP, const char *willTopic, const char *willMessage);
 	ESPHelper32(const char *ssid, const char *pass, const char *mqttIP, const char *willTopic, const char *willMessage, const int willQoS, const int willRetain);
 	ESPHelper32(const char *ssid, const char *pass, const char *mqttIP, const char *mqttUser, const char *mqttPass, const int mqttPort, const char *willTopic, const char *willMessage, const int willQoS, const int willRetain);
-
-
+	ESPHelper32(const char* configFile);
+	
+	bool begin(const char* filename);
 	bool begin(const netInfo *startingNet);
 	bool begin(const char *ssid, const char *pass, const char *mqttIP);
 	bool begin(const char *ssid, const char *pass);
@@ -67,6 +68,9 @@ public:
 	bool begin(const char *ssid, const char *pass, const char *mqttIP, const char *mqttUser, const char *mqttPass, const int mqttPort, const char *willTopic, const char *willMessage, const int willQoS, const int willRetain);
 	bool begin();
 	void end();
+
+	netInfo loadConfigFile(const char* filename);
+	bool saveConfigFile(const netInfo config, const char* filename);
 
 	void broadcastMode(const char* ssid, const char* password, const IPAddress ip);
 	void disableBroadcast();

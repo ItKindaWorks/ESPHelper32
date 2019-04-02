@@ -1,6 +1,6 @@
 /*
     ESPHelper32.cpp
-    Copyright (c) 2018 ItKindaWorks Inc All right reserved.
+    Copyright (c) 2019 ItKindaWorks Inc All right reserved.
     github.com/ItKindaWorks
 
     This file is part of ESPHelper32
@@ -21,7 +21,7 @@
 
 
 #include "ESPHelper32.h"
-
+#include "ESPHelper32FS.h"
 
 
 //empy initializer
@@ -86,6 +86,11 @@ ESPHelper32::ESPHelper32(netInfo *netList[], uint8_t netCount, uint8_t startInde
 	init(tmp->ssid, tmp->pass, tmp->mqttHost, tmp->mqttUser, tmp->mqttPass, tmp->mqttPort, tmp->willTopic, tmp->willMessage, tmp->willQoS, tmp->willRetain);
 }
 
+ESPHelper32::ESPHelper32(const char* configFile){
+	netInfo ESPConfig = loadConfigFile(configFile);
+	init(ESPConfig.ssid, ESPConfig.pass, ESPConfig.mqttHost, ESPConfig.mqttUser, ESPConfig.mqttPass, ESPConfig.mqttPort, ESPConfig.willTopic, ESPConfig.willMessage, ESPConfig.willQoS, ESPConfig.willRetain);
+}
+
 
 //initialize the netinfo data and reset wifi. set hopping and OTA to off
 void ESPHelper32::init(const char *ssid, const char *pass, const char *mqttIP, const char *mqttUser, const char *mqttPass, const int mqttPort, const char *willTopic, const char *willMessage, const int willQoS, const int willRetain){
@@ -143,6 +148,13 @@ void ESPHelper32::validateConfig(){
 
 }
 
+bool ESPHelper32::begin(const char* filename){
+	_currentNet = loadConfigFile(filename);
+	bool returnVal = begin(_currentNet.ssid, _currentNet.pass, _currentNet.mqttHost, _currentNet.mqttUser, _currentNet.mqttPass, _currentNet.mqttPort, _currentNet.willTopic, _currentNet.willMessage, _currentNet.willQoS, _currentNet.willRetain);
+
+	return returnVal;
+}
+
 bool ESPHelper32::begin(const netInfo *startingNet){
 	return begin(startingNet->ssid, startingNet->pass, startingNet->mqttHost, startingNet->mqttUser, startingNet->mqttPass, startingNet->mqttPort, startingNet->willTopic, startingNet->willMessage, startingNet->willQoS, startingNet->willRetain);
 }
@@ -170,16 +182,16 @@ bool ESPHelper32::begin(const char *ssid, const char *pass, const char *mqttIP, 
 	//false on: parameter check failed
 bool ESPHelper32::begin(){
 	if(_ssidSet){
-		// Generate client name based on MAC address and last 8 bits of microsecond counter
-		_clientName += "esp8266-";
-		uint8_t mac[6];
-		WiFi.macAddress(mac);
-		_clientName += macToStr(mac);
-
 		//set the wifi mode to station and begin the wifi (connect using either ssid or ssid/pass)
 		WiFi.mode(WIFI_STA);
 		if(_passSet){WiFi.begin(_currentNet.ssid, _currentNet.pass);}
 		else{WiFi.begin(_currentNet.ssid);}
+
+		// Generate client name based on MAC address and last 8 bits of microsecond counter
+		_clientName += "esp32-";
+		uint8_t mac[6];
+		WiFi.macAddress(mac);
+		_clientName += macToStr(mac);
 
 		//as long as an mqtt ip has been set create an instance of PubSub for client
 		if(_mqttSet){
@@ -205,6 +217,8 @@ bool ESPHelper32::begin(){
 		//ota event handlers
 		ArduinoOTA.onStart([]() {/* ota start code */});
 		ArduinoOTA.onEnd([]() {
+			//give the arduino a bit of time to finish up any remaining network activity
+			delay(500);
 			//on ota end we disconnect from wifi cleanly before restarting.
 			WiFi.softAPdisconnect();
 			WiFi.disconnect();
@@ -254,6 +268,64 @@ void ESPHelper32::end(){
 	_connectionStatus = NO_CONNECTION;
 
 }
+
+
+//attempts to load a config file from the filesystem - returns blank netInfo on failure
+//This will also create a new config with default values if none currently exists or is corrupted.
+netInfo ESPHelper32::loadConfigFile(const char* filename){
+	bool configLoaded = false;
+	netInfo returnConfig;
+
+	//create a static instance of the FS handler so that one isnt created by default but is left in memory if we
+	//need to load a config
+	static ESPHelper32FS configLoader(filename);
+
+	//attempt to load the config 3 times (really if it fails once it's probably going to fail again but why not try...)
+	for(int tryCount = 0; tryCount < 3 && configLoaded == false; tryCount++){
+
+		//attempt to start the filesystem
+		if(configLoader.begin()){
+			//attempt to load a configuration
+	    	configLoaded = configLoader.loadNetworkConfig();
+
+	    	//if no config loaded (either from corruption or no file), create a new config and close the FS
+		    if(!configLoaded){
+				debugPrintln("Could not load config - generating new config and restarting...");
+				configLoader.createConfig(filename);
+				configLoader.end();
+				debugPrintln("Config File loading failed. Retrying...");
+		    }
+
+		    //if there is a good config, load it and close the FS
+		    else{
+		    	debugPrintln("Config loaded, getting info");
+			    returnConfig = configLoader.getNetInfo();
+			    configLoader.end();
+			    debugPrintln("done.");
+		    }
+		}
+	}
+
+	//return either a loaded config or a blank one
+	return returnConfig;
+}
+
+//attempts to saves a new config file with a given netInfo and filename
+//Returns true on success /// false on failure
+bool ESPHelper32::saveConfigFile(const netInfo config, const char* filename){
+
+	//init ESPHelper FS and begin
+	ESPHelper32FS configLoader(filename);
+	if(configLoader.begin()){
+		configLoader.createConfig(&config);
+		configLoader.end();
+		return true;
+	}
+
+	//if the FS could not be started then return false (failed)
+	return false;
+}
+
 
 //enables and sets up broadcast mode rather than station mode. This allows users to create a network from the ESP
 //and upload using OTA even if there is no network already present. This disables all MQTT connections
