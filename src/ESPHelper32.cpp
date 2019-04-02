@@ -197,7 +197,10 @@ bool ESPHelper32::begin(){
 		if(_mqttSet){
 			//make mqtt client use either the secure or non-secure wifi client depending on the setting
 
-			client = PubSubClient(_currentNet.mqttHost, _currentNet.mqttPort, wifiClient);
+			//make mqtt client use either the secure or non-secure wifi client depending on the setting
+			if(_useSecureClient){client = PubSubClient(_currentNet.mqttHost, _currentNet.mqttPort, wifiClientSecure);}
+			else{client = PubSubClient(_currentNet.mqttHost, _currentNet.mqttPort, wifiClient);}
+
 
 			//set the mqtt message callback if needed
 			if(_mqttCallbackSet){
@@ -209,7 +212,8 @@ bool ESPHelper32::begin(){
 		else{
 			//make mqtt client use either the secure or non-secure wifi client depending on the setting
 			//(this shouldnt be needed if making a dummy connection since the idea would be that there wont be mqtt in this case)
-			client = PubSubClient("192.0.2.0", _currentNet.mqttPort, wifiClient);
+			if(_useSecureClient){client = PubSubClient("192.0.2.0", _currentNet.mqttPort, wifiClientSecure);}
+			else{client = PubSubClient("192.0.2.0", _currentNet.mqttPort, wifiClient);}
 
 		}
 
@@ -254,7 +258,7 @@ bool ESPHelper32::begin(){
 
 //end the instance of ESPHelper (shutdown wifi, ota, mqtt)
 void ESPHelper32::end(){
-	ESPHelperFS::end();
+	ESPHelper32FS::end();
 	OTA_disable();
 	client.disconnect();
 	WiFi.softAPdisconnect();
@@ -325,6 +329,25 @@ bool ESPHelper32::saveConfigFile(const netInfo config, const char* filename){
 
 	//if the FS could not be started then return false (failed)
 	return false;
+}
+
+
+//enables the use of a secure (SSL) connection to an MQTT broker.
+//(Make sure your mqtt port is set to one expecting a secure connection)
+void ESPHelper32::useSecureClient(const char* fingerprint){
+	_fingerprint = fingerprint;
+
+	//fall back to wifi only connection if it was previously at full connection
+	//(because we just changed how the device is going to connect to the mqtt broker)
+	if(setConnectionStatus() == FULL_CONNECTION){
+		_connectionStatus = WIFI_ONLY;
+	}
+
+	//if use of secure connection is set retroactivly (after begin), then re-instantiate client
+	if(_hasBegun){client = PubSubClient(_currentNet.mqttHost, _currentNet.mqttPort, wifiClientSecure);}
+
+	//flag use of secure client
+	_useSecureClient = true;
 }
 
 
@@ -604,6 +627,16 @@ void ESPHelper32::reconnect() {
 					//if connected, subscribe to the topic(s) we want to be notified about
 					if (connected) {
 						debugPrintln(" -- Connected");
+
+						//if using https, verify the fingerprint of the server before setting full connection (return on fail)
+						if(_useSecureClient){
+							if (wifiClientSecure.verify(_fingerprint, _currentNet.mqttHost)) {
+								debugPrintln("Certificate Matches - SUCESS");
+							} else {
+								debugPrintln("Certificate Doesn't Match - FAIL");
+								return;
+							}
+						}
 
 						_connectionStatus = FULL_CONNECTION;
 						resubscribe();

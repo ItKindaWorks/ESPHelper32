@@ -29,6 +29,7 @@
 #include <ArduinoOTA.h>
 #include <PubSubClient.h>
 #include "sharedData.h"
+#include <WiFiClientSecure.h>
 #include "Metro.h"
 
 // #define VERSION "1-5-6"
@@ -71,6 +72,8 @@ public:
 
 	netInfo loadConfigFile(const char* filename);
 	bool saveConfigFile(const netInfo config, const char* filename);
+
+	void useSecureClient(const char* fingerprint);
 
 	void broadcastMode(const char* ssid, const char* password, const IPAddress ip);
 	void disableBroadcast();
@@ -158,6 +161,9 @@ private:
 	Metro reconnectMetro = Metro(500);
 
 	WiFiClient wifiClient;
+	WiFiClientSecure wifiClientSecure;
+	const char* _fingerprint;
+	bool _useSecureClient = false;
 
 	String _clientName;
 
@@ -182,9 +188,9 @@ private:
 	bool _passSet = false;
 	bool _mqttSet = false;
 	bool _mqttUserSet = false;
-  bool _mqttPassSet = false;
+	bool _mqttPassSet = false;
 	bool _willTopicSet = false;
-  bool _willMessageSet = false;
+	bool _willMessageSet = false;
 
 	bool _useOTA = false;
 	bool _OTArunning = false;
