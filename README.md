@@ -1,4 +1,8 @@
 # ESPHelper32
+### This project has been merged with https://github.com/ItKindaWorks/ESPHelper ###
+Please use that library instead as this code is no longer being maintained
+
+
 A library to make using WiFi and MQTT on the ESP32 easy.
 
 This is a port of the ESPHelper library originally written for the ESP8266. For more information,
