@@ -254,6 +254,7 @@ bool ESPHelper32::begin(){
 
 //end the instance of ESPHelper (shutdown wifi, ota, mqtt)
 void ESPHelper32::end(){
+	ESPHelperFS::end();
 	OTA_disable();
 	client.disconnect();
 	WiFi.softAPdisconnect();
