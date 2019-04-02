@@ -1,5 +1,6 @@
 {
     "name": "ESPHelper32",
+    "authors": "ItKindaWorks",
     "keywords": "mqtt, iot, esp32",
     "description": "A library to make using WiFi & MQTT on ESP32 based platforms easy.",
     "version": "0.9.0",
